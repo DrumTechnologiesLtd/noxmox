@@ -101,12 +101,12 @@ exports.createClient = function(options) {
       resource:'/' + options.bucket + url.parse(filename).pathname
     });
 
-    var url = 'http://' + path.join(endpoint, filename) +
+    var _url = 'http://' + path.join(endpoint, filename) +
       '?Expires=' + epoch +
       '&AWSAccessKeyId=' + options.key +
       '&Signature=' + encodeURIComponent(signature);
 
-    return url;
+    return _url;
   };
 
   client.url =

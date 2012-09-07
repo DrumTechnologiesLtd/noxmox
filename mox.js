@@ -32,7 +32,7 @@ function wrapReadableStream(rs) {
   self.destroy = function() { self.readable = false; rs.destroy(); };
   self.destroySoon = function() { self.readable = false; rs.destroySoon(); };
   self.pipe = rs.pipe;
-  
+
   rs.on('data', function(chunk) { self.emit('data', chunk); });
   rs.on('end', function() { self.readable = false; self.emit('end'); });
   rs.on('error', function(err) { self.readable = false; });
@@ -43,11 +43,11 @@ function wrapReadableStream(rs) {
 
 function fakeWritableStream() {
   var self = new events.EventEmitter();
-  
+
   self.writable = true;
   self.write = function(chunk, enc) { return true; };
   self.end = self.destroy = self.destroySoon = function() { self.writable = false; };
-  
+
   return self;
 }
 
@@ -71,7 +71,7 @@ function wrapWritableStream(ws) {
 exports.createClient = function createClient(options) {
 
   if (!options.bucket) throw new Error('aws "bucket" required');
-  
+
   if (!options.prefix) {
     options.prefix = '/tmp/mox';
   }
@@ -80,14 +80,14 @@ exports.createClient = function createClient(options) {
   if (!path.existsSync(options.prefix)) {
     fs.mkdirSync(options.prefix, 0777);
   }
-  
+
   // create bucket dir, if it does not exists
   var bucketPath = path.join(options.prefix, options.bucket);
   if (!path.existsSync(bucketPath)) {
     fs.mkdirSync(bucketPath, 0777);
   }
 
-  
+
   function getFilePath(filename, createPath) {
     var filePath = path.join(bucketPath, filename);
     if (createPath) {
@@ -102,18 +102,18 @@ exports.createClient = function createClient(options) {
     return filePath;
   }
 
-  
+
   function emitResponse(request, opts) {
     if (request.responseEmitted) {
       console.error('Response already emitted.')
       return;
     }
-    
+
     var xml;
     var response = opts.response || fakeReadableStream();
 
     response.httpVersion = '1.1';
-    
+
     response.headers = response.headers || (opts.headers || {});
     response.headers.date = (new Date()).toUTCString();
     response.headers['server'] = 'Mox';
@@ -127,7 +127,7 @@ exports.createClient = function createClient(options) {
       opts.err.code, '</Code><Message>', opts.err.msg, '<Message></Error>'].join('');
     }
     response.headers['content-length'] = response.headers['content-length'] || (xml && xml.length || 0);
-    
+
     request.writable = false;
     request.emit('response', response);
     request.responseEmitted = true;
@@ -140,15 +140,15 @@ exports.createClient = function createClient(options) {
       response.emit('close');
     }
   }
-  
-  
+
+
   var client = new function() {};
-  
+
   client.put = function put(filename, headers) {
     var filePath = getFilePath(filename, true);
     var fileLength = 0;
     var md5 = crypto.createHash('md5');
-    
+
     // create file stream to write the file data
     var ws = fs.createWriteStream(filePath);
     var request = wrapWritableStream(ws);
@@ -195,12 +195,12 @@ exports.createClient = function createClient(options) {
 
     return request;
   };
-  
+
 
   client.get = function get(filename, headers) {
     var request = fakeWritableStream();
     var filePath = getFilePath(filename);
-    
+
     // read meta data
     fs.readFile(filePath + '.meta', 'utf8', function(err, data) {
       if (err) {
@@ -214,7 +214,7 @@ exports.createClient = function createClient(options) {
         }
         return;
       }
-      
+
       // create file stream for reading the requested file
       var rs = fs.createReadStream(filePath);
       var response = wrapReadableStream(rs);
@@ -223,11 +223,11 @@ exports.createClient = function createClient(options) {
 
       rs.on('open', function() {
         // file is ready, emit response
-        emitResponse(request, {response:response, hasbody:true}) 
+        emitResponse(request, {response:response, hasbody:true})
       });
       rs.on('error', function(err) {
         // emit response indicating the file read error
-        emitResponse(500, {code:'InternalError', msg:err.message});
+        emitResponse(request, {code:500, err:{code:'InternalError', msg:err.message}});
       });
     });
 
@@ -236,7 +236,7 @@ exports.createClient = function createClient(options) {
     return request;
   };
 
-  
+
   client.head = function head(filename, headers) {
     var request = fakeWritableStream();
     var filePath = getFilePath(filename);
@@ -264,12 +264,12 @@ exports.createClient = function createClient(options) {
 
     return request;
   };
-  
+
 
   client.del = function del(filename) {
     var request = fakeWritableStream();
     var filePath = getFilePath(filename);
-    
+
     // remove the file
     fs.unlink(filePath, function(err) {
       // ignore "no such file" errors
